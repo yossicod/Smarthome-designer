@@ -10,7 +10,7 @@ const Navbar = () => {
       <nav className={"inner"}>
         <div className={"left"}>
           <div className={"brand"}>
-            <img src="/logo.png" alt="Logo" className={"logo"} style={{ width: '80px', height: '48px', mixBlendMode: 'multiply', filter: 'contrast(1.1) saturate(1.1)' }} />
+            <img src="/logo.png" alt="Logo" className={"logo"} style={{ width: 'auto', height: '64px', objectFit: 'contain', mixBlendMode: 'multiply', filter: 'contrast(1.1) saturate(1.1)' }} />
             <span className={"name"}>SmartHome Designer</span>
           </div>
           <ul className={"links"}>
