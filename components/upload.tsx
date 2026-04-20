@@ -1,8 +1,10 @@
 
-import {useState} from "react";
+import {useState, useEffect, useRef} from "react";
 import {CheckCircle2, ImageIcon, UploadIcon} from "lucide-react";
 import {useAuth} from "../src/context/useAuth.ts";
 import {PROGRESS_INTERVAL_MS, PROGRESS_STEP, REDIRECT_DELAY_MS} from "../lib/constants.ts";
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 
 interface UploadProps {
     onComplete?: (data: string) => void;
@@ -14,14 +16,26 @@ const Upload = ({ onComplete }: UploadProps) => {
     const [progress, setProgress] = useState(0);
     const {authState} = useAuth();
     const {isSignedIn} = authState;
+    const uploadIntervalRef = useRef<number | null>(null);
 
     const processFile = (selectedFile: File) => {
         if (!isSignedIn) return;
+
+        // Check file size before processing
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            return;
+        }
 
         setFile(selectedFile);
         setProgress(0);
 
         const reader = new FileReader();
+
+        reader.onerror = () => {
+            setFile(null);
+            setProgress(0);
+        };
+
         reader.onload = (e) => {
             const base64Data = e.target?.result as string;
 
@@ -29,6 +43,10 @@ const Upload = ({ onComplete }: UploadProps) => {
                 setProgress((prev) => {
                     if (prev >= 100) {
                         clearInterval(interval);
+                        if (uploadIntervalRef.current) {
+                            clearInterval(uploadIntervalRef.current);
+                            uploadIntervalRef.current = null;
+                        }
                         setTimeout(() => {
                             if (onComplete) {
                                 onComplete(base64Data);
@@ -39,9 +57,19 @@ const Upload = ({ onComplete }: UploadProps) => {
                     return prev + PROGRESS_STEP;
                 });
             }, PROGRESS_INTERVAL_MS);
+
+            uploadIntervalRef.current = interval;
         };
         reader.readAsDataURL(selectedFile);
     };
+
+    useEffect(() => {
+        return () => {
+            if (uploadIntervalRef.current) {
+                clearInterval(uploadIntervalRef.current);
+            }
+        };
+    }, []);
 
     const handleDragEnter = (e: React.DragEvent) => {
         e.preventDefault();
@@ -138,4 +166,3 @@ const Upload = ({ onComplete }: UploadProps) => {
 };
 
 export default Upload;
-
