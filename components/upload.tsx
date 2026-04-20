@@ -1,5 +1,5 @@
 
-import {useState} from "react";
+import {useState, useEffect, useRef} from "react";
 import {CheckCircle2, ImageIcon, UploadIcon} from "lucide-react";
 import {useAuth} from "../src/context/useAuth.ts";
 import {PROGRESS_INTERVAL_MS, PROGRESS_STEP, REDIRECT_DELAY_MS} from "../lib/constants.ts";
@@ -8,27 +8,57 @@ interface UploadProps {
     onComplete?: (data: string) => void;
 }
 
+const MAX_FILE_SIZE_MB = 50;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const Upload = ({ onComplete }: UploadProps) => {
     const [file, setFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [error, setError] = useState<string | null>(null);
     const {authState} = useAuth();
     const {isSignedIn} = authState;
+    const uploadIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (uploadIntervalRef.current) {
+                clearInterval(uploadIntervalRef.current);
+            }
+        };
+    }, []);
 
     const processFile = (selectedFile: File) => {
         if (!isSignedIn) return;
 
+        // Validate file size
+        if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+            setError(`File size exceeds ${MAX_FILE_SIZE_MB} MB limit`);
+            return;
+        }
+
         setFile(selectedFile);
         setProgress(0);
+        setError(null);
 
         const reader = new FileReader();
+
+        reader.onerror = () => {
+            setError("Failed to read file. Please try again.");
+            setFile(null);
+            setProgress(0);
+        };
+
         reader.onload = (e) => {
             const base64Data = e.target?.result as string;
 
-            const interval = setInterval(() => {
+            uploadIntervalRef.current = setInterval(() => {
                 setProgress((prev) => {
                     if (prev >= 100) {
-                        clearInterval(interval);
+                        if (uploadIntervalRef.current) {
+                            clearInterval(uploadIntervalRef.current);
+                            uploadIntervalRef.current = null;
+                        }
                         setTimeout(() => {
                             if (onComplete) {
                                 onComplete(base64Data);
@@ -85,8 +115,13 @@ const Upload = ({ onComplete }: UploadProps) => {
 
     return(
         <div className={"upload"}>
+            {error && (
+                <div className={"error-message"} style={{color: 'red', marginBottom: '1rem', textAlign: 'center'}}>
+                    {error}
+                </div>
+            )}
             {!file ? (
-                <div 
+                <div
                     className={`dropzone ${isDragging ? 'is-dragging' : ''}`}
                     onDragEnter={handleDragEnter}
                     onDragOver={handleDragOver}
@@ -94,9 +129,9 @@ const Upload = ({ onComplete }: UploadProps) => {
                     onDrop={handleDrop}
                 >
                     <input
-                        type="file" 
-                        className={"drop-input"} 
-                        accept={".jpg,.jpeg,.png"} 
+                        type="file"
+                        className={"drop-input"}
+                        accept={".jpg,.jpeg,.png"}
                         disabled={!isSignedIn}
                         onChange={handleFileChange}
                     />
@@ -138,4 +173,3 @@ const Upload = ({ onComplete }: UploadProps) => {
 };
 
 export default Upload;
-
