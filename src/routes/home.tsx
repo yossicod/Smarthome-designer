@@ -38,7 +38,7 @@ export default function Home() {
                                 <Layers className={"icon"} />
                             </div>
                             <h3> Upload your plan</h3>
-                            <p> Supports JPG, PNG, formats up to 10MB</p>
+                            <p> Supports JPG, PNG formats. Maximum file size is 50 MB.</p>
                         </div>
                         <Upload onComplete={handleUploadComplete} />
                     </div>
