@@ -14,7 +14,7 @@ const Upload = ({ onComplete }: UploadProps) => {
     const [file, setFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [progress, setProgress] = useState(0);
-    const {authState} = useAuth();
+    const {authState, signIn} = useAuth();
     const {isSignedIn} = authState;
     const uploadIntervalRef = useRef<number | null>(null);
 
@@ -122,13 +122,19 @@ const Upload = ({ onComplete }: UploadProps) => {
                     onDrop={handleDrop}
                 >
                     <input
+                        id="file-upload"
                         type="file" 
                         className={"drop-input"} 
                         accept={".jpg,.jpeg,.png"} 
-                        disabled={!isSignedIn}
                         onChange={handleFileChange}
+                        onClick={(e) => {
+                            if (!isSignedIn) {
+                                e.preventDefault();
+                                void signIn();
+                            }
+                        }}
                     />
-                    <div className={"drop-content"}>
+                    <label htmlFor="file-upload" className="drop-content w-full h-full flex flex-col items-center justify-center cursor-pointer">
                         <div className={"drop-icon"}>
                             <UploadIcon size={30} />
                         </div>
@@ -138,7 +144,7 @@ const Upload = ({ onComplete }: UploadProps) => {
                             "Sign in to upload files"
                         )}</p>
                         <p className={"help"}>Maximum file size is 50 MB.</p>
-                    </div>
+                    </label>
                 </div>
             ) : (
                 <div className={"upload-status"}>
