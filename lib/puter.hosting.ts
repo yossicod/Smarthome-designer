@@ -19,8 +19,15 @@ export const getOrCreateHostingConfig = async (): Promise<HostingConfig | null> 
     const subdomain = createHostingSlug();
     try {
         const created = await puter.hosting.create(subdomain, '.');
-        return {subdomain: created.subdomain}
+        try {
+            await puter.kv.set(HOSTING_CONFIG_KEY, created);
+        } catch (kvError) {
+            console.warn(`Failed to persist hosting config: ${kvError}`);
+        }
+        const record = {subdomain: created.subdomain}
 
+        await puter.kv.set(HOSTING_CONFIG_KEY, record)
+        return record
     } catch (e) {
         console.warn(`could not find domain: ${e}`)
         return null

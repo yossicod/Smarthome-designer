@@ -1,7 +1,7 @@
 // import puter from "@heyputer/puter.js";
 // import type {CreateProjectParams, DesignItem} from "../types.ts";
 
- import {puter} from "@heyputer/puter.js";
+import {puter} from "@heyputer/puter.js";
 import type {CreateProjectParams, DesignItem} from "../types.ts";
 import {getOrCreateHostingConfig, uploadImageToHosting} from "./puter.hosting.ts";
 import * as url from "node:url";
@@ -17,8 +17,9 @@ export const signIn = async () => await puter.auth.signIn();
 
     }
  }
- export const createProject = async ({ item }: CreateProjectParams):
+ export const createProject = async (params: CreateProjectParams):
   Promise<DesignItem | null | undefined> => {
+     const { item } = params;
      const projectId = item.id;
      const hosting = await getOrCreateHostingConfig();
      const hostedSource = projectId ?
@@ -47,10 +48,12 @@ export const signIn = async () => await puter.auth.signIn();
          ...rest,
          sourceImage: resolvedSource,
          renderedImage: resolvedRender,
+         isPublic: item.isPublic ?? (params.visibility === "public"),
      }
      try {
          // Call the Puter worker to store project in kv
-         return payload
+         await puter.kv.set(projectId, payload);
+         return payload as DesignItem;
      } catch (e) {
          console.log('Failed to save project', e)
          return null
@@ -58,3 +61,13 @@ export const signIn = async () => await puter.auth.signIn();
 
 
  }
+
+export const getProject = async (id: string): Promise<DesignItem | null> => {
+    try {
+        const item = await puter.kv.get(id);
+        return item as DesignItem | null;
+    } catch (e) {
+        console.error("Failed to fetch project", e);
+        return null;
+    }
+};
