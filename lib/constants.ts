@@ -23,33 +23,96 @@ export const UNAUTHORIZED_STATUSES = [401, 403];
 // Image Dimensions
 export const IMAGE_RENDER_DIMENSION = 1024;
 
-export const SmartHome_Designer = `
-TASK: Convert the input 2D floor plan into a **photorealistic, top‑down 3D architectural render**.
+export const RENDER_PROMPT  = `
+TASK:
+Convert the input 2D floor plan into a photorealistic, top-down 3D architectural render.
 
 STRICT REQUIREMENTS (do not violate):
-1) **REMOVE ALL TEXT**: Do not render any letters, numbers, labels, dimensions, or annotations. Floors must be continuous where text used to be.
-2) **GEOMETRY MUST MATCH**: Walls, rooms, doors, and windows must follow the exact lines and positions in the plan. Do not shift or resize.
-3) **TOP‑DOWN ONLY**: Orthographic top‑down view. No perspective tilt.
-4) **CLEAN, REALISTIC OUTPUT**: Crisp edges, balanced lighting, and realistic materials. No sketch/hand‑drawn look.
-5) **NO EXTRA CONTENT**: Do not add rooms, furniture, or objects that are not clearly indicated by the plan.
+1) REMOVE ALL TEXT:
+Do not render any letters, numbers, labels, dimensions, or annotations. 
+Floors must be continuous and clean where text was present.
+
+2) GEOMETRY MUST MATCH:
+Walls, rooms, doors, and windows must strictly follow the exact lines and positions in the plan.
+Do not shift, resize, or reinterpret structure.
+
+3) TOP-DOWN ONLY:
+Use a strict orthographic top-down view.
+No perspective tilt.
+
+4) CLEAN, REALISTIC OUTPUT:
+Crisp edges, balanced lighting, and realistic materials.
+No sketch, cartoon, or hand-drawn styles.
+
+5) NO HALLUCINATED STRUCTURE:
+Do not add or remove rooms, walls, doors, or windows.
+
+--------------------------------------------------
 
 STRUCTURE & DETAILS:
-- **Walls**: Extrude precisely from the plan lines. Consistent wall height and thickness.
-- **Doors**: Convert door swing arcs into open doors, aligned to the plan.
-- **Windows**: Convert thin perimeter lines into realistic glass windows.
 
-FURNITURE & ROOM MAPPING (only where icons/fixtures are clearly shown):
-- Bed icon → realistic bed with duvet and pillows.
-- Sofa icon → modern sectional or sofa.
-- Dining table icon → table with chairs.
-- Kitchen icon → counters with sink and stove.
-- Bathroom icon → toilet, sink, and tub/shower.
-- Office/study icon → desk, chair, and minimal shelving.
-- Porch/patio/balcony icon → outdoor seating or simple furniture (keep minimal).
-- Utility/laundry icon → washer/dryer and minimal cabinetry.
+Walls:
+- Extrude precisely from the plan lines
+- Consistent wall height and thickness
 
-STYLE & LIGHTING:
-- Lighting: bright, neutral daylight. High clarity and balanced contrast.
-- Materials: realistic wood/tile floors, clean walls, subtle shadows.
-- Finish: professional architectural visualization; no text, no watermarks, no logos.
+Doors:
+- Convert door swing arcs into realistic open doors
+- Maintain exact position and orientation
+
+Windows:
+- Convert perimeter lines into realistic glass windows
+- Keep alignment exact
+
+--------------------------------------------------
+
+LAYOUT RULES:
+
+- Maintain clear walking paths between furniture
+- Do not block doors or windows
+- Scale furniture proportionally to room size
+- Keep balanced spacing (avoid overcrowding or emptiness)
+
+--------------------------------------------------
+
+FURNITURE LOGIC:
+
+- Add furniture ONLY where clearly indicated by icons or fixtures
+- If a room is empty but clearly identifiable (e.g., bedroom, living room), 
+  add minimal, realistic default furniture appropriate to the room type
+
+Examples:
+- Bedroom → bed, side tables
+- Living room → sofa, table
+- Dining → table with chairs
+- Kitchen → counters, sink, stove
+- Bathroom → toilet, sink, shower/tub
+
+Keep furniture minimal, clean, and realistic.
+
+--------------------------------------------------
+
+
+
+RENDER QUALITY:
+
+- High-resolution architectural visualization
+- Soft shadows and global illumination
+- Realistic materials (wood, fabric, tile, glass)
+- Clean, professional finish
+
+--------------------------------------------------
+
+CAMERA:
+
+- Strict orthographic top-down view
+- Consistent scale and framing across the entire image
+
+--------------------------------------------------
+
+FINAL OUTPUT:
+
+- No text
+- No watermark
+- No logo
+- Clean, realistic, and ready-to-present architectural layout
 `.trim();
