@@ -1,5 +1,5 @@
-import {puter} from "@heyputer/puter.js";
-import {StoreHostedImageParams} from "../types";
+ import {puter} from "@heyputer/puter.js";
+import {StoreHostedImageParams} from "../types.ts";
 import {
     createHostingSlug,
     fetchBlobFromUrl, getHostedUrl,
@@ -7,7 +7,7 @@ import {
     HOSTING_CONFIG_KEY,
     imageUrlToPngBlob,
     isHostedUrl
-} from "./utils";
+} from "./utils.ts";
 
 
 
@@ -33,7 +33,7 @@ export const getOrCreateHostingConfig = async (): Promise<HostingConfig | null> 
         return null
     }
 }
-export const uploadImageToHosting = async ({hosting, url, projectId, label}: StoreHostedImageParams): Promise<HostedAsset | null> => {
+ export const uploadImageToHosting = async ({hosting, url, projectId, label}: StoreHostedImageParams): Promise<HostedAsset | null> => {
     if (!hosting || !url) return null
     if(isHostedUrl(url)) return {url}
     try {
@@ -58,5 +58,4 @@ export const uploadImageToHosting = async ({hosting, url, projectId, label}: Sto
         return null
 
     }
-
 }

@@ -4,8 +4,7 @@
 import {puter} from "@heyputer/puter.js";
 import type {CreateProjectParams, DesignItem} from "../types.ts";
 import {getOrCreateHostingConfig, uploadImageToHosting} from "./puter.hosting.ts";
-import * as url from "node:url";
-import {isHostedUrl} from "./utils.ts";
+import {isHostedUrl, HOSTING_CONFIG_KEY} from "./utils.ts";
 
 export const signIn = async () => await puter.auth.signIn();
   export const signOut = async () =>  puter.auth.signOut();
@@ -69,5 +68,30 @@ export const getProject = async (id: string): Promise<DesignItem | null> => {
     } catch (e) {
         console.error("Failed to fetch project", e);
         return null;
+    }
+};
+
+export const listAllProjects = async (): Promise<DesignItem[]> => {
+    try {
+        const items = await puter.kv.list();
+        const projects: DesignItem[] = [];
+        
+        for (const item of items) {
+            // Check if it's a project (has an ID that is likely a timestamp)
+            // Note: Puter's list returns items which we then need to fetch if it's not the value itself
+            // Actually, puter.kv.list() can be used with a prefix or to get all.
+            // Let's assume we store projects with a specific prefix or just iterate and check types.
+            // For now, let's fetch each one.
+            if (item.key !== HOSTING_CONFIG_KEY) {
+                const project = await getProject(item.key);
+                if (project && project.id && project.timestamp) {
+                    projects.push(project);
+                }
+            }
+        }
+        return projects.sort((a, b) => b.timestamp - a.timestamp);
+    } catch (e) {
+        console.error("Failed to list projects", e);
+        return [];
     }
 };

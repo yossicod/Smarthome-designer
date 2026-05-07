@@ -1,11 +1,14 @@
 import "./App.css";
-import { Outlet } from "react-router-dom";
-import Navbar from "../components/navbar";
+import { Outlet, useLocation } from "react-router-dom";
+import Navbar from "../components/navbar.tsx";
 
 export default function App() {
+  const location = useLocation();
+  const isVisualizer = location.pathname.includes('/visualizer');
+
   return (
     <div className="home">
-      <Navbar />
+      {!isVisualizer && <Navbar />}
       <main>
         <Outlet />
       </main>

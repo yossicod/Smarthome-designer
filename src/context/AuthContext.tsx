@@ -7,7 +7,7 @@ import {
   getCurrentUser,
   signIn as puterSignIn,
   signOut as puterSignOut,
-} from "../../lib/puter.actino";
+} from "../../lib/puter.action.ts";
 import { authContext } from "./auth-context";
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -1,5 +1,5 @@
 import Button from "./UI/Button.tsx";
-import { useAuth } from "../src/context/useAuth";
+import { useAuth } from "../src/context/useAuth.ts";
 
 const Navbar = () => {
   const { authState, signIn, signOut } = useAuth();
