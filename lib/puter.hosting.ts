@@ -1,5 +1,5 @@
  import {puter} from "@heyputer/puter.js";
-import {StoreHostedImageParams} from "../types.ts";
+import type {StoreHostedImageParams} from "../types.ts";
 import {
     createHostingSlug,
     fetchBlobFromUrl, getHostedUrl,

@@ -1,4 +1,4 @@
-import {Generate3DViewParams} from "../types.ts";
+import type {Generate3DViewParams} from "../types.ts";
 import {puter} from "@heyputer/puter.js";
 import {RENDER_PROMPT} from "./constants.ts";
 
@@ -31,7 +31,7 @@ export const fetchAsDataUrl = async (url: string): Promise<string> => {
         reader.readAsDataURL(blob);
     });
 };
-export const generate3DView = async ({ sourceImage}: Generate3DViewParams) => {
+export const generate3DView = async ({ sourceImage, selectedStyle}: Generate3DViewParams) => {
     const dataUrl = sourceImage.startsWith("data:")
         ? sourceImage : await fetchAsDataUrl(sourceImage);
 
@@ -40,14 +40,18 @@ export const generate3DView = async ({ sourceImage}: Generate3DViewParams) => {
     if (!base64Data || !mimeType) {
         throw new Error("Invalid source image payload");
     }
-    const response = await puter.ai.txt2img(RENDER_PROMPT, {
-        provider: 'Gemini',
-        model: 'Gemini-2.5-flash-image-preview',
-        input_image: base64Data,
-        input_image_mime_type: mimeType,
-        ratio: { w: 1024, h: 1024}
-
-    })
+    const response = await puter.ai.txt2img(
+        selectedStyle
+            ? `${RENDER_PROMPT}\n\nStyle: ${selectedStyle}`
+            : RENDER_PROMPT,
+        {
+            provider: 'Gemini',
+            model: 'Gemini-2.5-flash-image-preview',
+            input_image: base64Data,
+            input_image_mime_type: mimeType,
+            ratio: { w: 1024, h: 1024 }
+        }
+    );
 
     const rawImageUrl = (response as HTMLImageElement).src ?? null
     if (!rawImageUrl) return { renderedImage: null, renderedPath: undefined }
