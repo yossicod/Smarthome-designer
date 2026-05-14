@@ -1,41 +1,64 @@
-import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {useLocation, useNavigate, useOutletContext, useParams} from "react-router-dom";
 import {useEffect, useState, useRef} from "react";
-import {Clock, Download, Globe, Lock, RefreshCcw, Share2, X} from "lucide-react";
-import {getProject} from "../lib/puter.action.ts";
-import {generate3DView} from "../lib/ai.action.ts";
-import type {DesignItem} from "../types.ts";
-import Button from "../components/UI/Button.tsx";
+import {Download, RefreshCcw, Share2, X} from "lucide-react";
+import {createProject, getProject} from "../../lib/puter.action.ts";
+import {generate3DView} from "../../lib/ai.action.ts";
+import type {AuthContext, DesignItem} from "../../types.ts";
+import Button from "../../components/UI/Button.tsx";
 
 const VisualizerId = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const location = useLocation();
-    
+    const { userId } = useOutletContext<AuthContext>()
     // Fast-path data from navigation state
-    const state = location.state as { initialImage?: string; initialRender?: string; name?: string } | null;
+    const state = location.state as { initialImage?: string; initialRender?: string; name?: string; selectedStyle?: string } | null;
     
     const hasInitialGenerated = useRef(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    
+    const [isProjectLoading, setIsProjectLoading] = useState(true)
     const [project, setProject] = useState<Partial<DesignItem> | null>(state ? {
         sourceImage: state.initialImage,
         renderedImage: state.initialRender,
         name: state.name
     } : null);
     
-    const [loading, setLoading] = useState(!project);
-    const [error, setError] = useState<string | null>(null);
     const handleBack = () => navigate('/');
 
-    const runGeneration = async (sourceImage: string) => {
+    const runGeneration = async (item: Partial<DesignItem>) => {
+        if (!id || !item.sourceImage) return;
         try {
+            setIsProjectLoading(true)
             setIsProcessing(true);
-            const result = await generate3DView({ sourceImage });
+            const result = await generate3DView({
+                sourceImage: item.sourceImage,
+                selectedStyle: project?.selectedStyle ?? state?.selectedStyle ?? null
+            });
+
             if (result.renderedImage) {
-                setProject(prev => ({
+                setProject((prev: Partial<DesignItem> | null) => ({
                     ...prev,
                     renderedImage: result.renderedImage
                 }));
+                if (!item.id || !item.sourceImage) {
+                    setIsProjectLoading(false)
+                    return;
+                }
+                const uploadItem: DesignItem = {
+                    ...item,
+                    id: item.id,
+                    sourceImage: item.sourceImage,
+                    renderedImage: result.renderedImage,
+                    timestamp: Date.now(),
+                    isPublic: item.isPublic || false,
+                    renderedPath: result.renderedImage,
+                    ownerId: item.ownerId || userId || null
+                }
+                const saved = await createProject({ item: uploadItem, visibility: "private" });
+                if (saved) {
+                    setProject(saved);
+                    setIsProjectLoading(false)
+                }
             }
         } catch (error) {
             console.error('Error generating 3D view:', error);
@@ -45,55 +68,58 @@ const VisualizerId = () => {
     };
 
     useEffect(() => {
-        if (!id) return;
-
         let isMounted = true;
 
         const loadProject = async () => {
-            try {
-                const fetched = await getProject(id);
-                if (isMounted) {
-                    if (fetched) {
-                        setProject(fetched);
-                        
-                        // If we have a source image but no rendered image yet, and haven't tried generating
-                        if (fetched.sourceImage && !fetched.renderedImage && !hasInitialGenerated.current) {
-                            hasInitialGenerated.current = true;
-                            void runGeneration(fetched.sourceImage);
-                        }
-                    } else if (!project) {
-                        setError("Project not found");
-                    }
-                }
-            } catch (err) {
-                if (isMounted && !project) {
-                    setError("Failed to load project");
-                    console.error(err);
-                }
-            } finally {
-                if (isMounted) {
-                    setLoading(false);
-                }
+            if (!id) {
+                setIsProjectLoading(false);
+                return;
             }
+
+            setIsProjectLoading(true);
+
+            const fetchedProject = await getProject(id);
+
+            if (!isMounted) return;
+
+            setProject(fetchedProject);
+            setIsProjectLoading(false);
+            hasInitialGenerated.current = false;
         };
 
-        void loadProject();
+        loadProject();
 
         return () => {
             isMounted = false;
         };
     }, [id]);
 
-    if (loading && !project) {
+    useEffect(() => {
+        if (
+            isProjectLoading ||
+            hasInitialGenerated.current ||
+            !project?.sourceImage
+        )
+            return;
+
+        if (project.renderedImage) {
+            hasInitialGenerated.current = true;
+            return;
+        }
+
+        hasInitialGenerated.current = true;
+        void runGeneration(project);
+    }, [project, isProjectLoading]);
+
+    if (isProjectLoading && !project) {
         return <div className="p-8 text-center">Loading project...</div>;
     }
 
-    if (error && !project) {
-        return <div className="p-8 text-center text-red-500">{error}</div>;
+    if (!isProjectLoading && !project) {
+        return <div className="p-8 text-center text-red-500">Project not found</div>;
     }
 
     const displayName = project?.name || 'Untitled Project';
-    const displayDate = project?.timestamp ? new Date(project.timestamp).toLocaleDateString() : '';
 
     return (
         <div className="visualizer">

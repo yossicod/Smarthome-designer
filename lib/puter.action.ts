@@ -4,7 +4,8 @@
 import {puter} from "@heyputer/puter.js";
 import type {CreateProjectParams, DesignItem} from "../types.ts";
 import {getOrCreateHostingConfig, uploadImageToHosting} from "./puter.hosting.ts";
-import {isHostedUrl, HOSTING_CONFIG_KEY} from "./utils.ts";
+import {isHostedUrl} from "./utils.ts";
+import {PUTER_WORKER_URL} from "./constants.ts";
 
 export const signIn = async () => await puter.auth.signIn();
   export const signOut = async () =>  puter.auth.signOut();
@@ -18,7 +19,11 @@ export const signIn = async () => await puter.auth.signIn();
  }
  export const createProject = async (params: CreateProjectParams):
   Promise<DesignItem | null | undefined> => {
-     const { item } = params;
+     if(!PUTER_WORKER_URL) {
+         console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch')
+         return null
+     }
+     const { item, visibility = "private"} = params;
      const projectId = item.id;
      const hosting = await getOrCreateHostingConfig();
      const hostedSource = projectId ?
@@ -50,9 +55,18 @@ export const signIn = async () => await puter.auth.signIn();
          isPublic: item.isPublic ?? (params.visibility === "public"),
      }
      try {
-         // Call the Puter worker to store project in kv
+         const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/save`, {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ project: payload, visibility })
+         })
+         if (!response.ok) {
+             console.error('Failed to save project', await response.text())
+             return null
+         }
+         const data = (await response.json()) as {  project: DesignItem | null}
          await puter.kv.set(projectId, payload);
-         return payload as DesignItem;
+         return data.project ?? null
      } catch (e) {
          console.log('Failed to save project', e)
          return null
@@ -62,33 +76,45 @@ export const signIn = async () => await puter.auth.signIn();
  }
 
 export const getProject = async (id: string): Promise<DesignItem | null> => {
+    if (!PUTER_WORKER_URL) {
+        console.warn("Missing VITE_PUTER_WORKER_URL; skipping project fetch.");
+        return null;
+    }
+
     try {
-        const item = await puter.kv.get(id);
-        return item as DesignItem | null;
+        const response = await puter.workers.exec(
+            `${PUTER_WORKER_URL}/api/projects/get?id=${encodeURIComponent(id)}`,
+            { method: "GET" },
+        );
+
+        if (!response.ok) {
+            console.error("Failed to fetch project:", await response.text());
+            return null;
+        }
+
+        const data = (await response.json()) as { project?: DesignItem | null };
+        return data?.project ?? null;
     } catch (e) {
         console.error("Failed to fetch project", e);
         return null;
     }
-};
+}
 
 export const listAllProjects = async (): Promise<DesignItem[]> => {
+    if (!PUTER_WORKER_URL) {
+        console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch')
+        return []
+    }
+
     try {
-        const items = await puter.kv.list();
-        const projects: DesignItem[] = [];
-        
-        for (const item of items) {
-            // Check if it's a project (has an ID that is likely a timestamp)
-            // Note: Puter's list returns items which we then need to fetch if it's not the value itself
-            // Actually, puter.kv.list() can be used with a prefix or to get all.
-            // Let's assume we store projects with a specific prefix or just iterate and check types.
-            // For now, let's fetch each one.
-            if (item.key !== HOSTING_CONFIG_KEY) {
-                const project = await getProject(item.key);
-                if (project && project.id && project.timestamp) {
-                    projects.push(project);
-                }
-            }
+        const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/list`, { method: "GET" })
+        if (!response.ok) {
+            console.error('Failed to fetch history', await response.text())
+            return []
         }
+
+        const data = (await response.json()) as { projects?: DesignItem[] | null }
+        const projects = Array.isArray(data.projects) ? data.projects : []
         return projects.sort((a, b) => b.timestamp - a.timestamp);
     } catch (e) {
         console.error("Failed to list projects", e);

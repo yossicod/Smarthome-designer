@@ -14,7 +14,6 @@ const Navbar = () => {
             <span className={"name"}>SmartHome Designer</span>
           </div>
           <ul className={"links"}>
-            <a href="#">Product</a>
             <a href="#">Pricing</a>
             <a href="#">Community</a>
             <a href="#">Enterprise</a>

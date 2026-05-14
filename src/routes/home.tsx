@@ -1,20 +1,19 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth.ts";
 import { ArrowRight, ArrowUpRight, Clock, Layers, Lock, Globe } from "lucide-react";
-import Button from "../components/UI/Button.tsx";
-import Upload from "../components/upload.tsx";
-import {useState, useEffect} from "react";
-import type {DesignItem} from "../types.ts";
-import {createProject, listAllProjects} from "../lib/puter.action.ts";
+import Button from "../../components/UI/Button.tsx";
+import Upload from "../../components/upload.tsx";
+import {useState, useEffect, useRef} from "react";
+import type {DesignItem} from "../../types.ts";
+import {createProject, listAllProjects} from "../../lib/puter.action.ts";
 
 export default function Home() {
     const navigate = useNavigate();
     const [projects, setProjects] = useState<DesignItem[]>([])
+    const isCreatingProjectRef = useRef(false)
     const [projectName, setProjectName] = useState("");
-    const [visibility, setVisibility] = useState<"private" | "public">("private");
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-
-    const { authState, signIn } = useAuth();
+    const [selectedStyle, setSelectedStyle] = useState<string>("");    const { authState, signIn } = useAuth();
     const { isSignedIn, userName } = authState;
 
     useEffect(() => {
@@ -28,32 +27,44 @@ export default function Home() {
     }, []);
 
     const handleUploadComplete = async (data: string) => {
+        if (isCreatingProjectRef.current) return false;
+        isCreatingProjectRef.current = true;
+
         const newId = Date.now().toString();
         const finalName = projectName.trim() || `Residence ${newId}`;
         const newItem: DesignItem = {
-            id: newId, 
-            name: finalName, 
-            sourceImage: data, 
-            renderedImage: undefined, 
+            id: newId,
+            name: finalName,
+            sourceImage: data,
+            renderedImage: undefined,
             timestamp: Date.now(),
-            sharedBy: userName || "Anonymous"
-        }
-        const saved = await createProject({item: newItem, visibility});
-        if (!saved) {
-            console.error("Failed to create project");
-            return false;
-        }
-        setProjects((prev) => [saved, ...prev]);
-        navigate(`/visualizer/${newId}`, {
-            state: {
-                initialImage: saved.sourceImage,
-                initialRender: saved.renderedImage,
-                name: finalName
+            sharedBy: userName || "Anonymous",
+            selectedStyle: selectedStyle || null
+        };
+
+        try {
+            const saved = await createProject({ item: newItem });
+            if (!saved) {
+                console.error("Failed to create project");
+                return false;
             }
-        });
-        return true;
+
+            setProjects((prev) => [saved, ...prev]);
+            navigate(`/visualizer/${newId}`, {
+                state: {
+                    initialImage: saved.sourceImage,
+                    initialRender: saved.renderedImage,
+                    name: finalName,
+                    selectedStyle
+                }
+            });
+            return true;
+        } finally {
+            isCreatingProjectRef.current = false;
+        }
     };
 
+    const styleOptions = ["Modern", "Minimal", "Scandinavian", "Industrial", "Classic", "Bohemian"];
     return (
         <div className="home">
             <section className={"hero"}>
@@ -92,17 +103,17 @@ export default function Home() {
                     <div className={"upload-card"}>
                         <div className={"upload-head"}>
                             <div className={"upload-icon"}>
-                                <Layers className={"icon"} />
+                                <Layers className={"icon"}/>
                             </div>
                             <h3> Upload your plan</h3>
                             <p> Supports JPG, PNG formats. Maximum file size is 50 MB.</p>
                         </div>
-                        
+
                         <div className="mb-6 space-y-4 px-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     placeholder="Enter project name..."
                                     value={projectName}
                                     onChange={(e) => setProjectName(e.target.value)}
@@ -110,35 +121,30 @@ export default function Home() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
-                                <div className="flex gap-4">
-                                    <label className="flex items-center cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="visibility" 
-                                            value="private" 
-                                            checked={visibility === "private"}
-                                            onChange={() => setVisibility("private")}
-                                            className="mr-2"
-                                        />
-                                        <span className="text-sm">Private</span>
-                                    </label>
-                                    <label className="flex items-center cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="visibility" 
-                                            value="public" 
-                                            checked={visibility === "public"}
-                                            onChange={() => setVisibility("public")}
-                                            className="mr-2"
-                                        />
-                                        <span className="text-sm">Public</span>
-                                    </label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Style</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {styleOptions.map((style) => {
+                                        const isActive = selectedStyle === style;
+                                        return (
+                                            <button
+                                                key={style}
+                                                type="button"
+                                                onClick={() => setSelectedStyle(style)}
+                                                className={`px-3 py-1 rounded-md border text-sm ${
+                                                    isActive ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
+                                                }`}
+                                            >
+                                                {style}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
 
-                        <Upload onComplete={handleUploadComplete} />
+
+
+                        <Upload onComplete={handleUploadComplete}/>
 
                     </div>
                 </div>
@@ -155,9 +161,12 @@ export default function Home() {
                         <div className="p-8 text-center">Loading projects...</div>
                     ) : (
                         <div className={"projects-grid"}>
-                            {projects.map(({id, name, renderedImage, sourceImage,
-                            timestamp, isPublic, sharedBy}) => (
-                                <div key={id} className={"project-card group cursor-pointer"} onClick={() => navigate(`/visualizer/${id}`)}>
+                            {projects.map(({
+                                               id, name, renderedImage, sourceImage,
+                                               timestamp, isPublic, sharedBy
+                                           }) => (
+                                <div key={id} className={"project-card group cursor-pointer"}
+                                     onClick={() => navigate(`/visualizer/${id}`)}>
                                     <div className={"preview"}>
                                         <img
                                             src={renderedImage || sourceImage}

@@ -25,6 +25,7 @@ export interface DesignItem {
     sharedBy?: string | null;
     sharedAt?: string | null;
     isPublic?: boolean;
+    selectedStyle?: string | null;
 }
 
 export interface DesignConfig {
@@ -125,4 +126,5 @@ export interface CreateProjectParams {
 export interface Generate3DViewParams {
     sourceImage: string;
     projectId?: string | null;
+    selectedStyle?: string | null;
 }
