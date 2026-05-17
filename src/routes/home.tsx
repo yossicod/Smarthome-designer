@@ -7,13 +7,16 @@ import {useState, useEffect, useRef} from "react";
 import type {DesignItem} from "../../types.ts";
 import {createProject, listAllProjects} from "../../lib/puter.action.ts";
 
+const styleOptions = ["Modern", "Minimal", "Scandinavian", "Industrial", "Classic", "Bohemian"];
+
 export default function Home() {
     const navigate = useNavigate();
     const [projects, setProjects] = useState<DesignItem[]>([])
     const isCreatingProjectRef = useRef(false)
     const [projectName, setProjectName] = useState("");
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-    const [selectedStyle, setSelectedStyle] = useState<string>("");    const { authState, signIn } = useAuth();
+    const [selectedStyle, setSelectedStyle] = useState<string>("");
+    const { authState, signIn } = useAuth();
     const { isSignedIn, userName } = authState;
 
     useEffect(() => {
@@ -43,7 +46,13 @@ export default function Home() {
         };
 
         try {
-            const saved = await createProject({ item: newItem });
+            let saved: DesignItem | null | undefined;
+            try {
+                saved = await createProject({ item: newItem });
+            } catch (error) {
+                console.error("Failed to create project", { error, newId, finalName });
+                return false;
+            }
             if (!saved) {
                 console.error("Failed to create project");
                 return false;
@@ -64,7 +73,6 @@ export default function Home() {
         }
     };
 
-    const styleOptions = ["Modern", "Minimal", "Scandinavian", "Industrial", "Classic", "Bohemian"];
     return (
         <div className="home">
             <section className={"hero"}>
