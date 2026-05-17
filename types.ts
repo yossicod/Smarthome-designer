@@ -53,6 +53,7 @@ export type VisualizerLocationState = {
     ownerId?: string | null;
     name?: string | null;
     sharedBy?: string | null;
+    selectedStyle?: string | null;
 };
 
 export interface VisualizerProps {

@@ -3,16 +3,18 @@ import {useEffect, useState, useRef} from "react";
 import {Download, RefreshCcw, Share2, X} from "lucide-react";
 import {createProject, getProject} from "../../lib/puter.action.ts";
 import {generate3DView} from "../../lib/ai.action.ts";
-import type {AuthContext, DesignItem} from "../../types.ts";
+import type {AuthContext, DesignItem, VisualizerLocationState} from "../../types.ts";
 import Button from "../../components/UI/Button.tsx";
+import {ReactCompareSlider, ReactCompareSliderImage} from "react-compare-slider";
 
 const VisualizerId = () => {
     const navigate = useNavigate();
     const { id } = useParams();
     const location = useLocation();
-    const { userId } = useOutletContext<AuthContext>()
+    const outletContext = useOutletContext<AuthContext | undefined>();
+    const userId = outletContext?.userId ?? null;
     // Fast-path data from navigation state
-    const state = location.state as { initialImage?: string; initialRender?: string; name?: string; selectedStyle?: string } | null;
+    const state = location.state as VisualizerLocationState | null;
     
     const hasInitialGenerated = useRef(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -24,6 +26,18 @@ const VisualizerId = () => {
     } : null);
     
     const handleBack = () => navigate('/');
+
+    const handleExport = () => {
+        const currentImage = project?.renderedImage;
+        if (!currentImage) return;
+
+        const link = document.createElement('a');
+        link.href = currentImage;
+        link.download = `${displayName || 'rendered-image'}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     const runGeneration = async (item: Partial<DesignItem>) => {
         if (!id || !item.sourceImage) return;
@@ -51,7 +65,7 @@ const VisualizerId = () => {
                     renderedImage: result.renderedImage,
                     timestamp: Date.now(),
                     isPublic: item.isPublic || false,
-                    renderedPath: result.renderedImage,
+                    renderedPath: result.renderedPath ?? null,
                     ownerId: item.ownerId || userId || null
                 }
                 const saved = await createProject({ item: uploadItem, visibility: "private" });
@@ -64,6 +78,7 @@ const VisualizerId = () => {
             console.error('Error generating 3D view:', error);
         } finally {
             setIsProcessing(false);
+            setIsProjectLoading(false);
         }
     };
 
@@ -77,14 +92,21 @@ const VisualizerId = () => {
             }
 
             setIsProjectLoading(true);
+            try {
+                const fetchedProject = await getProject(id);
 
-            const fetchedProject = await getProject(id);
+                if (!isMounted) return;
 
-            if (!isMounted) return;
-
-            setProject(fetchedProject);
-            setIsProjectLoading(false);
-            hasInitialGenerated.current = false;
+                setProject(fetchedProject);
+                hasInitialGenerated.current = false;
+            } catch (error) {
+                if (!isMounted) return;
+                console.error('Failed to load project:', error);
+            } finally {
+                if (isMounted) {
+                    setIsProjectLoading(false);
+                }
+            }
         };
 
         loadProject();
@@ -109,7 +131,7 @@ const VisualizerId = () => {
 
         hasInitialGenerated.current = true;
         void runGeneration(project);
-    }, [project, isProjectLoading]);
+    }, [project, isProjectLoading, state?.selectedStyle]);
 
     if (isProjectLoading && !project) {
         return <div className="p-8 text-center">Loading project...</div>;
@@ -143,7 +165,7 @@ const VisualizerId = () => {
                         <div className={"panel-actions"}>
                             <Button
                                 size={"sm"}
-                                onClick={() =>{}}
+                                onClick={handleExport}
                                 className={"export"}
                                 disabled={!project?.renderedImage}>
                                 <Download className={"w-4 h-4 mr-2"} /> Export
@@ -181,6 +203,39 @@ const VisualizerId = () => {
                         )}
                     </div>
                 </div>
+                <div className={"panel compare"}>
+                    <div className={"panel-header"}>
+                        <div className={"panel-meta"}>
+                            <p>Comparison</p>
+                            <h3>Before and After</h3>
+
+                        </div>
+                        <div className={"hint"}>
+                            Drag to compare
+                        </div>
+                    </div>
+                    <div className={"compare-stage"}>
+                        {project?.sourceImage && project.renderedImage ? (
+                            <ReactCompareSlider
+                                defaultValue={50}
+                                style={{width: '100%', height: 'auto'}}
+                                itemOne={
+                                <ReactCompareSliderImage src={project.sourceImage} alt={"before"} className={"compare-img"} />
+                                }
+                                itemTwo={
+                                    <ReactCompareSliderImage src={project.renderedImage} alt={"before"} className={"compare-img"} />
+                                }
+                            />
+                        ) : (
+                            <div className={"compare-fallback"}>
+                                {project.sourceImage && (
+                                    <img src={project.sourceImage} alt={"after"} className={"compare-img"} />
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
             </section>
         </div>
 

@@ -20,7 +20,7 @@ export const signIn = async () => await puter.auth.signIn();
  export const createProject = async (params: CreateProjectParams):
   Promise<DesignItem | null | undefined> => {
      if(!PUTER_WORKER_URL) {
-         console.warn('Missing VITE_PUTER_WORKER_URL; skip history fetch')
+         console.warn('Missing VITE_PUTER_WORKER_URL; skip saving project')
          return null
      }
      const { item, visibility = "private"} = params;
@@ -33,7 +33,7 @@ export const signIn = async () => await puter.auth.signIn();
      const resolvedSource = hostedSource ?.url || (isHostedUrl(item.sourceImage) ?
      item.sourceImage: '')
      if (!resolvedSource){
-         console.warn('Faild to host source image, skipping save')
+         console.warn('Failed to host source image, skipping save')
          return null
      }
      const resolvedRender = hostedRendered?.url
@@ -52,7 +52,7 @@ export const signIn = async () => await puter.auth.signIn();
          ...rest,
          sourceImage: resolvedSource,
          renderedImage: resolvedRender,
-         isPublic: item.isPublic ?? (params.visibility === "public"),
+         isPublic: item.isPublic ?? (visibility === "public"),
      }
      try {
          const response = await puter.workers.exec(`${PUTER_WORKER_URL}/api/projects/save`, {
@@ -65,7 +65,6 @@ export const signIn = async () => await puter.auth.signIn();
              return null
          }
          const data = (await response.json()) as {  project: DesignItem | null}
-         await puter.kv.set(projectId, payload);
          return data.project ?? null
      } catch (e) {
          console.log('Failed to save project', e)
