@@ -6,8 +6,10 @@ import Upload from "../../components/upload.tsx";
 import {useState, useEffect, useRef} from "react";
 import type {DesignItem} from "../../types.ts";
 import {createProject, listAllProjects} from "../../lib/puter.action.ts";
+import {ALLOWED_STYLES} from "../../lib/constants.ts";
+import {sanitizeSelectedStyle} from "../../lib/image-security.ts";
 
-const styleOptions = ["Modern", "Minimal", "Scandinavian", "Industrial", "Classic", "Bohemian"];
+const styleOptions = [...ALLOWED_STYLES];
 
 export default function Home() {
     const navigate = useNavigate();
@@ -16,8 +18,15 @@ export default function Home() {
     const [projectName, setProjectName] = useState("");
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [selectedStyle, setSelectedStyle] = useState<string>("");
+    const [toast, setToast] = useState<string | null>(null);
     const { authState, signIn } = useAuth();
     const { isSignedIn, userName } = authState;
+
+    useEffect(() => {
+        if (!toast) return;
+        const timer = window.setTimeout(() => setToast(null), 2200);
+        return () => window.clearTimeout(timer);
+    }, [toast]);
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -42,7 +51,7 @@ export default function Home() {
             renderedImage: undefined,
             timestamp: Date.now(),
             sharedBy: userName || "Anonymous",
-            selectedStyle: selectedStyle || null
+            selectedStyle: sanitizeSelectedStyle(selectedStyle || null),
         };
 
         try {
@@ -55,10 +64,12 @@ export default function Home() {
             }
             if (!saved) {
                 console.error("Failed to create project");
+                setToast("Failed to create project. Please try again.");
                 return false;
             }
 
             setProjects((prev) => [saved, ...prev]);
+            setToast("Upload complete. Redirecting to editor...");
             navigate(`/visualizer/${newId}`, {
                 state: {
                     initialImage: saved.sourceImage,
@@ -75,6 +86,11 @@ export default function Home() {
 
     return (
         <div className="home">
+            {toast && (
+                <div className="toast" role="status" aria-live="polite">
+                    {toast}
+                </div>
+            )}
             <section className={"hero"}>
                 <div className={"announce"}>
                     <div className={"dot"}>
@@ -117,20 +133,20 @@ export default function Home() {
                             <p> Supports JPG, PNG formats. Maximum file size is 50 MB.</p>
                         </div>
 
-                        <div className="mb-6 space-y-4 px-6">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                        <div className="project-form">
+                            <div className="field">
+                                <label className="field-label">Project Name</label>
                                 <input
                                     type="text"
                                     placeholder="Enter project name..."
                                     value={projectName}
                                     onChange={(e) => setProjectName(e.target.value)}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="field-input"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Style</label>
-                                <div className="flex flex-wrap gap-2">
+                            <div className="field">
+                                <label className="field-label">Style</label>
+                                <div className="style-options">
                                     {styleOptions.map((style) => {
                                         const isActive = selectedStyle === style;
                                         return (
@@ -138,8 +154,8 @@ export default function Home() {
                                                 key={style}
                                                 type="button"
                                                 onClick={() => setSelectedStyle(style)}
-                                                className={`px-3 py-1 rounded-md border text-sm ${
-                                                    isActive ? "bg-black text-white border-black" : "bg-white text-gray-700 border-gray-300"
+                                                className={`style-chip ${
+                                                    isActive ? "is-active" : ""
                                                 }`}
                                             >
                                                 {style}
@@ -166,10 +182,19 @@ export default function Home() {
                         </div>
                     </div>
                     {isLoadingProjects ? (
-                        <div className="p-8 text-center">Loading projects...</div>
+                        <div className={"projects-skeleton"}>
+                            <div className={"skeleton-card"} />
+                            <div className={"skeleton-card"} />
+                            <div className={"skeleton-card"} />
+                        </div>
                     ) : (
                         <div className={"projects-grid"}>
-                            {projects.map(({
+                            {projects.length === 0 ? (
+                                <div className={"empty"}>
+                                    <h4>No projects yet</h4>
+                                    <p>Upload a floor plan to create your first professional visualization.</p>
+                                </div>
+                            ) : projects.map(({
                                                id, name, renderedImage, sourceImage,
                                                timestamp, isPublic, sharedBy
                                            }) => (

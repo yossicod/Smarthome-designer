@@ -1,5 +1,63 @@
+import {IMAGE_RENDER_DIMENSION} from "./constants.ts";
+
 export const HOSTING_CONFIG_KEY = "roomify_hosting_config";
 export const HOSTING_DOMAIN_SUFFIX = ".puter.site";
+
+const roundDimension = (value: number) =>
+    Math.max(256, Math.round(value / 8) * 8);
+
+/** Keeps source aspect ratio; longest side capped at maxDim. */
+export const computeRenderDimensions = (
+    width: number,
+    height: number,
+    maxDim = IMAGE_RENDER_DIMENSION,
+): { w: number; h: number } => {
+    if (!width || !height) return { w: maxDim, h: maxDim };
+    const scale = Math.min(1, maxDim / Math.max(width, height));
+    return {
+        w: roundDimension(width * scale),
+        h: roundDimension(height * scale),
+    };
+};
+
+const loadImageFromDataUrl = (dataUrl: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Failed to load image"));
+        img.src = dataUrl;
+    });
+
+/**
+ * Fits the plan into a render canvas matching its aspect ratio (letterboxed).
+ * Input/output dimensions align so the model does not stretch or overscale the building.
+ */
+export const prepareSourceImageForRender = async (
+    dataUrl: string,
+): Promise<{ dataUrl: string; width: number; height: number }> => {
+    const img = await loadImageFromDataUrl(dataUrl);
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    const { w, h } = computeRenderDimensions(srcW, srcH);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+
+    ctx.fillStyle = "#f4f4f4";
+    ctx.fillRect(0, 0, w, h);
+
+    const fitScale = Math.min(w / srcW, h / srcH);
+    const drawW = srcW * fitScale;
+    const drawH = srcH * fitScale;
+    const offsetX = (w - drawW) / 2;
+    const offsetY = (h - drawH) / 2;
+    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+    return { dataUrl: canvas.toDataURL("image/png"), width: w, height: h };
+};
 
 export const isHostedUrl = (value: unknown): value is string =>
     typeof value === "string" &&
@@ -84,6 +142,10 @@ export const fetchBlobFromUrl = async (
         return dataUrlToBlob(url);
     }
 
+    if (!isHostedUrl(url)) {
+        return null;
+    }
+
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error("Failed to fetch image");
@@ -98,6 +160,7 @@ export const fetchBlobFromUrl = async (
 
 export const imageUrlToPngBlob = async (url: string): Promise<Blob | null> => {
     if (typeof window === "undefined") return null;
+    if (!url.startsWith("data:") && !isHostedUrl(url)) return null;
 
     try {
         const img = new Image();
@@ -127,4 +190,12 @@ export const imageUrlToPngBlob = async (url: string): Promise<Blob | null> => {
     } catch {
         return null;
     }
+};
+
+/** Appends a cache-busting query param so re-uploads to the same hosted path still refresh in the UI. */
+export const cacheBustUrl = (url: string | null | undefined, version?: number | null): string => {
+    if (!url) return "";
+    if (!version) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${version}`;
 };

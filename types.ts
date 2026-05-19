@@ -128,4 +128,5 @@ export interface Generate3DViewParams {
     sourceImage: string;
     projectId?: string | null;
     selectedStyle?: string | null;
+    mode?: 'initial' | 'variation';
 }

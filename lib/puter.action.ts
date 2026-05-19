@@ -6,6 +6,7 @@ import type {CreateProjectParams, DesignItem} from "../types.ts";
 import {getOrCreateHostingConfig, uploadImageToHosting} from "./puter.hosting.ts";
 import {isHostedUrl} from "./utils.ts";
 import {PUTER_WORKER_URL} from "./constants.ts";
+import {isAllowedSourceImageUrl, sanitizeSelectedStyle} from "./image-security.ts";
 
 export const signIn = async () => await puter.auth.signIn();
   export const signOut = async () =>  puter.auth.signOut();
@@ -24,6 +25,10 @@ export const signIn = async () => await puter.auth.signIn();
          return null
      }
      const { item, visibility = "private"} = params;
+     if (!isAllowedSourceImageUrl(item.sourceImage)) {
+         console.warn('Invalid source image URL, skipping save');
+         return null;
+     }
      const projectId = item.id;
      const hosting = await getOrCreateHostingConfig();
      const hostedSource = projectId ?
@@ -52,6 +57,7 @@ export const signIn = async () => await puter.auth.signIn();
          ...rest,
          sourceImage: resolvedSource,
          renderedImage: resolvedRender,
+         selectedStyle: sanitizeSelectedStyle(item.selectedStyle),
          isPublic: item.isPublic ?? (visibility === "public"),
      }
      try {
